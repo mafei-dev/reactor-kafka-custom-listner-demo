@@ -22,7 +22,7 @@ public class SampleCommandEndpoint implements CommandEndpoint {
     }
 
     @Override
-    @KafkaListener(topic = "SAGA_SAMPLE_UNDO_PROCESS")
+    @KafkaListener(topic = "SAGA_SAMPLE_UNDO_PROCESS",partitions = {0})
     public void undoProcess(ConsumerRecord<String, String> consumerRecord) {
 //        System.out.println("SampleCommandEndpoint.undoProcess:"+consumerRecord);
         log.info("SampleCommandEndpoint.undoProcess:{}", consumerRecord);

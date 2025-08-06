@@ -1,6 +1,8 @@
 package com.example.reactorkafkademo.annotation;
 
 import com.example.reactorkafkademo.core.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.ApplicationContext;
@@ -17,14 +19,14 @@ import java.util.Map;
 public class AnnotationValidator {
     public final static Map<String, EndpointTopicData> topicDataMap = new HashMap<>();
     private final ApplicationContext applicationContext;
-    private Pair<List<TopicPartition>, List<String>> listListPair;
+    private TopicMetadata topicMetadata;
 
     public AnnotationValidator(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 
-    public Pair<List<TopicPartition>, List<String>> topicPartition() {
-        if (listListPair == null) {
+    public TopicMetadata topicPartition() {
+        if (topicMetadata == null) {
             Map<String, Endpoint> endpoints = applicationContext.getBeansOfType(Endpoint.class);
             endpoints.forEach((s, endpoint) -> {
                 if (endpoint instanceof SagaEndpoint sagaEndpoint) {
@@ -176,19 +178,46 @@ public class AnnotationValidator {
                 }
 
             });
-            List<String> topics = new ArrayList<>(topicDataMap.size());
-            List<TopicPartition> partitions = new ArrayList<>(topicDataMap.size());
+            List<String> reactiveTopics = new ArrayList<>();
+            List<TopicPartition> reactivePartitions = new ArrayList<>();
+            List<String> nonReactiveTopics = new ArrayList<>();
+            List<TopicPartition> nonReactivePartitions = new ArrayList<>();
+
             topicDataMap.forEach((s, endpointTopicData) -> {
                 if (endpointTopicData.getTopicTopicPartition().length == 0) {
-                    topics.add(endpointTopicData.getTopicName());
+                    if (endpointTopicData.getImplType().equals(ImplType.REACTIVE)) {
+                        reactiveTopics.add(endpointTopicData.getTopicName());
+                    } else if (endpointTopicData.getImplType().equals(ImplType.NON_REACTIVE)) {
+                        nonReactiveTopics.add(endpointTopicData.getTopicName());
+                    }
                 } else {
-                    for (int i : endpointTopicData.getTopicTopicPartition()) {
-                        partitions.add(new TopicPartition(endpointTopicData.getTopicName(), i));
+                    if (endpointTopicData.getImplType().equals(ImplType.REACTIVE)) {
+                        for (int i : endpointTopicData.getTopicTopicPartition()) {
+                            reactivePartitions.add(new TopicPartition(endpointTopicData.getTopicName(), i));
+                        }
+                    } else if (endpointTopicData.getImplType().equals(ImplType.NON_REACTIVE)) {
+                        for (int i : endpointTopicData.getTopicTopicPartition()) {
+                            nonReactivePartitions.add(new TopicPartition(endpointTopicData.getTopicName(), i));
+                        }
                     }
                 }
             });
-            listListPair = Pair.of(partitions, topics);
+            topicMetadata = new TopicMetadata();
+            topicMetadata.setReactiveTopicList(reactiveTopics);
+            topicMetadata.setNonReactiveTopicList(nonReactiveTopics);
+            topicMetadata.setReactiveTopicPartitionList(reactivePartitions);
+            topicMetadata.setNonReactiveTopicPartitionList(nonReactivePartitions);
         }
-        return listListPair;
+        return topicMetadata;
+    }
+
+    @Setter
+    @Getter
+    public static class TopicMetadata {
+        private List<TopicPartition> reactiveTopicPartitionList;
+        private List<TopicPartition> nonReactiveTopicPartitionList;
+        private List<String> reactiveTopicList;
+        private List<String> nonReactiveTopicList;
     }
 }
+

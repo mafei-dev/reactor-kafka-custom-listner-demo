@@ -66,14 +66,14 @@ public class KafkaService {
         }
 
         if (this.reactiveReceiver != null) {
-            this.nonReactive(reactiveReceiver);
+            this.nonReactive(reactiveReceiver, false);
         }
         if (this.manualReactiveReceiver != null) {
-            this.nonReactive(manualReactiveReceiver);
+            this.nonReactive(manualReactiveReceiver, true);
         }
     }
 
-    private void nonReactive(KafkaReceiver<String, String> manualReactiveReceiver) {
+    private void nonReactive(KafkaReceiver<String, String> manualReactiveReceiver, boolean isManual) {
         manualReactiveReceiver.receive()
                 .flatMap(stringStringReceiverRecord -> {
                     System.out.println("stringStringReceiverRecord = " + stringStringReceiverRecord);
@@ -85,6 +85,8 @@ public class KafkaService {
                             .doFinally(signal -> {
                                 log.debug("done>{}", stringStringReceiverRecord.value());
                                 stringStringReceiverRecord.receiverOffset().acknowledge();
+                                if (!isManual) {
+                                }
                             });
                 }, 1000)
                 .subscribe();

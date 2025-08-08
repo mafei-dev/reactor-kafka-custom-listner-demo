@@ -2,6 +2,7 @@ package com.example.reactorkafkademo.config;
 
 import com.example.reactorkafkademo.annotation.AnnotationValidator;
 import lombok.AllArgsConstructor;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -10,7 +11,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.kafka.receiver.KafkaReceiver;
@@ -18,6 +18,7 @@ import reactor.kafka.receiver.ReceiverOptions;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
 
+import java.time.Duration;
 import java.util.*;
 
 @Configuration
@@ -27,13 +28,17 @@ public class KafkaReactiveConfig {
     private final AnnotationValidator annotationValidator;
 
     @Bean("sagaAutomaticBasedReceiverOptionsReactive")
-    public ReceiverOptions<String, String> sagaAutomaticBasedReceiverOptions(KafkaProperties kafkaProperties) {
-        Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties());
+    public ReceiverOptions<String, String> sagaAutomaticBasedReceiverOptions() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.ENABLE_METRICS_PUSH_CONFIG, false);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-//        props.put(ConsumerConfig.GROUP_ID_CONFIG, "sample_service");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "sample_service");
         props.put(ConsumerConfig.CLIENT_ID_CONFIG, UUID.randomUUID().toString());
         List<String> topics = annotationValidator.topicPartition().getReactiveTopicList();
+        System.out.println("reactive:topics:" + topics);
+//        return null;
         if (topics.isEmpty()) {
             return null;
         } else {
@@ -44,19 +49,26 @@ public class KafkaReactiveConfig {
     }
 
     @Bean("sagaManualBasedReceiverOptionsReactive")
-    public ReceiverOptions<String, String> sagaManualBasedReceiverOptions(KafkaProperties kafkaProperties) {
-        Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties());
+    public ReceiverOptions<String, String> sagaManualBasedReceiverOptions() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.ENABLE_METRICS_PUSH_CONFIG, false);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-//        props.put(ConsumerConfig.GROUP_ID_CONFIG, "sample_service");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG,"sample_service_manual_reactive");
+//        props.remove(ConsumerConfig.GROUP_ID_CONFIG);
         props.put(ConsumerConfig.CLIENT_ID_CONFIG, UUID.randomUUID().toString());
         List<TopicPartition> partitions = annotationValidator.topicPartition().getReactiveTopicPartitionList();
+        System.out.println("reactive:partitions:" + partitions);
         if (partitions.isEmpty()) {
             return null;
         } else {
             return ReceiverOptions.<String, String>create(props)
                     .commitBatchSize(20)
-                    .assignment(partitions);
+                    .commitInterval(Duration.ofMinutes(1))
+                    .assignment(partitions)
+                    .pollTimeout(Duration.ofSeconds(5))
+                    .maxCommitAttempts(3);
         }
     }
 
@@ -75,7 +87,7 @@ public class KafkaReactiveConfig {
     @Bean
     public SenderOptions<String, String> senderOptions() {
         Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         return SenderOptions.create(props);
